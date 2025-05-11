@@ -2,6 +2,7 @@ import multiprocessing
 import os
 import re
 import tempfile
+from playwright.sync_api import ViewportSize, sync_playwright
 import textwrap
 import threading
 import time
@@ -20,6 +21,7 @@ from utils.cleanup import cleanup
 from utils.console import print_step, print_substep
 from utils.fancythumbnail import create_fancy_thumbnail
 from utils.fonts import getheight
+from utils.generatescreenshot import render_data
 from utils.thumbnail import create_thumbnail
 from utils.videos import save_data
 
@@ -210,18 +212,26 @@ def make_final_video(
 
     # Credits to tim (beingbored)
     # get the title_template image and draw a text in the middle part of it with the title of the thread
-    title_template = Image.open("assets/title_template.png")
 
     title = reddit_obj["thread_title"]
 
     title = name_normalize(title)
 
-    font_color = "#000000"
-    padding = 5
+    with sync_playwright() as p:
+        print_substep("Launching Headless Browser...")
 
-    title_img = create_fancy_thumbnail(title_template, title, font_color, padding)
+        browser = p.chromium.launch(
+            headless=True
+        )
+        context = browser.new_context(
+            color_scheme="dark",
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        )
+        page = context.new_page()
+        temp_file = render_data(title, '999', '')
+        page.goto(f"file://{os.path.abspath(temp_file)}")
+        page.locator("id=master").screenshot(path=f"assets/temp/{reddit_id}/png/title.png", omit_background=True)
 
-    title_img.save(f"assets/temp/{reddit_id}/png/title.png")
     image_clips.insert(
         0,
         ffmpeg.input(f"assets/temp/{reddit_id}/png/title.png")["v"].filter(

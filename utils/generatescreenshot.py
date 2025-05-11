@@ -36,7 +36,7 @@ post_template = f"""
     <div style="flex-grow: 0; flex-shrink: 0; width: 30px; height: 7.5px; position: relative; overflow: hidden; background: url({{more_path}}); background-size: cover; background-repeat: no-repeat; background-position: center;"></div>
   </div>
   <div style="display: flex; justify-content: center; align-items: center; flex-grow: 0; flex-shrink: 0; width: 865px; position: relative; gap: 10px; padding-left: 7px; padding-right: 7px;">
-    <p style="flex-grow: 1; width: 851px; font-size: 25.3px; font-weight: 600; text-align: left; color: #bec2c4;">{{prompt}}</p>
+    <p style="flex-grow: 1; width: 851px; font-size: 30px; font-weight: 600; text-align: left; color: #bec2c4;">{{prompt}}</p>
   </div>
   <div style="line-height: 0px; display: flex; justify-content: flex-start; align-items: flex-end; flex-grow: 0; flex-shrink: 0; width: 398px; gap: 9px; padding-left: 6px; padding-right: 6px; padding-top: 0px;">
     <div style="display: flex; justify-content: center; align-items: center; flex-grow: 0; flex-shrink: 0; height: auto px; position: relative; gap: 8px; padding-left: 16px; padding-right: 16px; padding-top: 12px; padding-bottom: 12px; border-radius: 30px; background: #1f262e;">
@@ -88,7 +88,7 @@ def get_relative_asset_path(html_file_path, asset_file_name):
     path = base_directory.replace('\\', '/')
     return f"{path}/assets/{asset_file_name}"
 
-def render_data(text):   
+def render_data(text, upvotes_count='', author_text='User'):   
     
     # Write the post HTML to a temporary file in "temp_files"
     temp_post_file = 'assets/temp/post.html'
@@ -96,9 +96,9 @@ def render_data(text):
     # Generate HTML for the post
     post_html = post_template.format(
         subreddit = 'StoryVault',
-        author = 'User',
+        author = author_text,
         prompt = text,
-        upvotes = "",
+        upvotes = upvotes_count,
         pfp_directory = get_relative_asset_path(temp_post_file, "pfp.png"),
         time = "",
         
