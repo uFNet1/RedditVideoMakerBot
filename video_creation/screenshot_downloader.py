@@ -1,5 +1,6 @@
 import json
 import re
+import os
 from pathlib import Path
 from typing import Dict, Final
 
@@ -9,9 +10,13 @@ from rich.progress import track
 
 from utils import settings
 from utils.console import print_step, print_substep
+from utils.fancythumbnail import create_fancy_thumbnail
+from utils.generatescreenshot import render_data
 from utils.imagenarator import imagemaker
 from utils.playwright import clear_cookie_by_name
 from utils.videos import save_data
+
+from PIL import Image, ImageDraw, ImageFont
 
 __all__ = ["get_screenshots_of_reddit_posts"]
 
@@ -177,12 +182,12 @@ def get_screenshots_of_reddit_posts(reddit_object: dict, screenshot_num: int):
                 # zoom the body of the page
                 page.evaluate("document.body.style.zoom=" + str(zoom))
                 # as zooming the body doesn't change the properties of the divs, we need to adjust for the zoom
-                location = page.locator('[data-test-id="post-content"]').bounding_box()
+                location = page.locator('shreddit-post').bounding_box()
                 for i in location:
                     location[i] = float("{:.2f}".format(location[i] * zoom))
                 page.screenshot(clip=location, path=postcontentpath)
             else:
-                page.locator('[data-test-id="post-content"]').screenshot(path=postcontentpath)
+                page.locator('shreddit-post').screenshot(path=postcontentpath)
         except Exception as e:
             print_substep("Something went wrong!", style="red")
             resp = input(
@@ -207,6 +212,10 @@ def get_screenshots_of_reddit_posts(reddit_object: dict, screenshot_num: int):
                 path=f"assets/temp/{reddit_id}/png/story_content.png"
             )
         else:
+            # with sync_playwright() as playwright:
+            #   screenshotchromium = playwright.chromium
+            #   screenbrowser = screenshotchromium.launch(headless=True)
+            #   screenpage = browser.new_page()
             for idx, comment in enumerate(
                 track(
                     reddit_object["comments"][:screenshot_num],
@@ -231,29 +240,69 @@ def get_screenshots_of_reddit_posts(reddit_object: dict, screenshot_num: int):
                         to_language=settings.config["reddit"]["thread"]["post_lang"],
                     )
                     page.evaluate(
-                        '([tl_content, tl_id]) => document.querySelector(`#t1_${tl_id} > div:nth-child(2) > div > div[data-testid="comment"] > div`).textContent = tl_content',
+                        '([tl_content, tl_id]) => document.querySelector(`shreddit-comment[thingid="t1_${tl_id}"] > div:nth-child(2) > div > div[data-testid="comment"] > div`).textContent = tl_content',
                         [comment_tl, comment["comment_id"]],
                     )
                 try:
+                    
+                    target = f'shreddit-comment[thingid="t1_{comment["comment_id"]}"] div#t1_{comment["comment_id"]}-comment-rtjson-content'
+                    visible = page.locator(target).is_visible()
+                    
+                    if not visible:
+                        class ElementVisible(Exception):pass
+                        try:
+                            for _ in range(30):
+                                page.evaluate("""
+                                    (target) => {
+                                        const element = document.querySelector(target);
+                                        if (element) {
+                                            element.style.display = 'block'; // 或 'inline'
+                                            element.style.visibility = 'visible';
+                                        }
+                                    }
+                                """, target)
+                                page.wait_for_timeout(1000)
+                                visible = page.locator(target).is_visible()
+                                if visible:
+                                    raise ElementVisible
+                            target = f'shreddit-comment[thingid="t1_{comment["comment_id"]}"] div#t1_{comment["comment_id"]}-comment-rtjson-content div#-post-rtjson-content'
+                            visible = page.locator(target).is_visible()
+                            if not visible:
+                                for _ in range(30):
+                                    page.evaluate("""
+                                        (target) => {
+                                            const element = document.querySelector(target);
+                                            if (element) {
+                                                element.style.display = 'block'; // 或 'inline'
+                                                element.style.visibility = 'visible';
+                                            }
+                                        }
+                                    """, target)
+                                    page.wait_for_timeout(1000)
+                                    visible = page.locator(target).is_visible()
+                                    if visible:
+                                        raise ElementVisible
+                                    target = f'shreddit-comment[thingid="t1_{comment["comment_id"]}"]'
+                        except ElementVisible:
+                            pass
                     if settings.config["settings"]["zoom"] != 1:
                         # store zoom settings
                         zoom = settings.config["settings"]["zoom"]
                         # zoom the body of the page
                         page.evaluate("document.body.style.zoom=" + str(zoom))
                         # scroll comment into view
-                        page.locator(f"#t1_{comment['comment_id']}").scroll_into_view_if_needed()
+                        page.locator(target).scroll_into_view_if_needed()
                         # as zooming the body doesn't change the properties of the divs, we need to adjust for the zoom
-                        location = page.locator(f"#t1_{comment['comment_id']}").bounding_box()
+                        location = page.locator(target).bounding_box()
                         for i in location:
                             location[i] = float("{:.2f}".format(location[i] * zoom))
-                        page.screenshot(
-                            clip=location,
-                            path=f"assets/temp/{reddit_id}/png/comment_{idx}.png",
-                        )
+                        temp_file = render_data(comment["comment_body"])
+                        page.goto(f"file://{os.path.abspath(temp_file)}")
+                        page.locator("id=master").screenshot(path=f"assets/temp/{reddit_id}/png/comment_{idx}.png", omit_background=True)
                     else:
-                        page.locator(f"#t1_{comment['comment_id']}").screenshot(
-                            path=f"assets/temp/{reddit_id}/png/comment_{idx}.png"
-                        )
+                        temp_file = render_data(comment["comment_body"])
+                        page.goto(f"file://{os.path.abspath(temp_file)}")
+                        page.locator("id=master").screenshot(path=f"assets/temp/{reddit_id}/png/comment_{idx}.png", omit_background=True)
                 except TimeoutError:
                     del reddit_object["comments"]
                     screenshot_num += 1
