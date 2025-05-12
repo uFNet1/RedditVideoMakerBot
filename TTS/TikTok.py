@@ -138,8 +138,7 @@ class TikTok:
             response = self._session.post(self.URI_BASE, params=params)
         except ConnectionError:
             time.sleep(random.randrange(1, 7))
-            response = self._session.post(self.URI_BASE, params=params)
-
+            response = self._session.post(self.URI_BASE, params=params)          
         return response.json()
 
     @staticmethod
@@ -154,7 +153,7 @@ class TikTokTTSException(Exception):
 
     def __str__(self) -> str:
         if self._code == 1:
-            return f"Code: {self._code}, reason: probably the aid value isn't correct, message: {self._message}"
+            return f"Code: {self._code}, reason: probably the aid (session id) value isn't correct, message: {self._message}"
 
         if self._code == 2:
             return f"Code: {self._code}, reason: the text is too long, message: {self._message}"

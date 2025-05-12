@@ -2,7 +2,9 @@ import os
 import re
 from pathlib import Path
 from typing import Tuple
-
+from pydub import AudioSegment
+from pydub.effects import speedup
+import soundfile as sf
 import numpy as np
 import translators
 from moviepy.audio.AudioClip import AudioClip
@@ -12,6 +14,8 @@ from rich.progress import track
 
 from utils import settings
 from utils.console import print_step, print_substep
+from utils.generatesrt import generate_srt
+from utils.pitchchanger import change_pitch
 from utils.voice import sanitize_text
 
 DEFAULT_MAX_LENGTH: int = (
@@ -147,7 +151,7 @@ class TTSEngine:
         self.tts_module.run(
             text,
             filepath=f"{self.path}/{filename}.mp3",
-            random_voice=settings.config["settings"]["tts"]["random_voice"],
+            random_voice=settings.config["settings"]["tts"]["random_voice"]
         )
         # try:
         #     self.length += MP3(f"{self.path}/{filename}.mp3").info.length

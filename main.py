@@ -13,6 +13,7 @@ from utils import settings
 from utils.cleanup import cleanup
 from utils.console import print_markdown, print_step, print_substep
 from utils.ffmpeg_install import ffmpeg_install
+from utils.generatesrt import generate_srt
 from utils.id import id
 from utils.version import checkversion
 from video_creation.background import (
@@ -40,7 +41,7 @@ print(
 print_markdown(
     "### Thanks for using this tool! Feel free to contribute to this project on GitHub! If you have any questions, feel free to join my Discord server or submit a GitHub issue. You can find solutions to many common problems in the documentation: https://reddit-video-maker-bot.netlify.app/"
 )
-checkversion(__VERSION__)
+# checkversion(__VERSION__)
 
 
 def main(POST_ID=None) -> None:

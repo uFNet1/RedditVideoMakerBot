@@ -22,8 +22,11 @@ from utils.console import print_step, print_substep
 from utils.fancythumbnail import create_fancy_thumbnail
 from utils.fonts import getheight
 from utils.generatescreenshot import render_data
+from utils.generatesrt import generate_srt
+from utils.pitchchanger import change_pitch
 from utils.thumbnail import create_thumbnail
 from utils.videos import save_data
+from utils.voice import sanitize_text
 
 console = Console()
 
@@ -200,6 +203,13 @@ def make_final_video(
         audio_concat, f"assets/temp/{reddit_id}/audio.mp3", **{"b:a": "192k"}
     ).overwrite_output().run(quiet=True)
 
+    if settings.config["settings"]["tts"]["change_pitch"]:
+      audiopath = f"assets/temp/{reddit_id}/audio.mp3"
+      change_pitch(audiopath)
+      words = generate_srt(sanitize_text(' '.join(reddit_obj["thread_post"])), audiopath)
+      srt_file = f"assets/temp/{reddit_id}/subtitles.srt"
+      with open(srt_file, "w", encoding="utf-8") as f:
+        f.write(words)   
     console.log(f"[bold green] Video Will Be: {length} Seconds Long")
 
     screenshot_width = int((W * 45) // 100)
@@ -266,19 +276,20 @@ def make_final_video(
             )
             current_time += audio_clips_durations[0]
         elif settings.config["settings"]["storymodemethod"] == 1:
-            for i in track(range(0, number_of_clips + 1), "Collecting the image files..."):
-                image_clips.append(
-                    ffmpeg.input(f"assets/temp/{reddit_id}/png/img{i}.png")["v"].filter(
-                        "scale", screenshot_width, -1
-                    )
-                )
-                background_clip = background_clip.overlay(
-                    image_clips[i],
-                    enable=f"between(t,{current_time},{current_time + audio_clips_durations[i]})",
-                    x="(main_w-overlay_w)/2",
-                    y="(main_h-overlay_h)/2",
-                )
-                current_time += audio_clips_durations[i]
+            print('there should be and image but i removed it')
+            # for i in track(range(0, number_of_clips + 1), "Collecting the image files..."):
+            #     image_clips.append(
+            #         ffmpeg.input(f"assets/temp/{reddit_id}/png/img{i}.png")["v"].filter(
+            #             "scale", screenshot_width, -1
+            #         )
+            #     )
+            #     background_clip = background_clip.overlay(
+            #         image_clips[i],
+            #         enable=f"between(t,{current_time},{current_time + audio_clips_durations[i]})",
+            #         x="(main_w-overlay_w)/2",
+            #         y="(main_h-overlay_h)/2",
+            #     )
+            #     current_time += audio_clips_durations[i]
     else:
         for i in range(0, number_of_clips + 1):
             image_clips.append(
@@ -376,8 +387,9 @@ def make_final_video(
             path[:251] + ".mp4"
         )  # Prevent a error by limiting the path length, do not change this.
         try:
+            ffmpeg.filter_()
             ffmpeg.output(
-                background_clip,
+                background_clip.filter('subtitles', srt_file, force_style='Fontname=Caveat Brush,PrimaryColour=&HFF0000&,OutlineColour=&H&0&,Alignment=10'),
                 final_audio,
                 path,
                 f="mp4",
@@ -407,7 +419,7 @@ def make_final_video(
         with ProgressFfmpeg(length, on_update_example) as progress:
             try:
                 ffmpeg.output(
-                    background_clip,
+                    background_clip.filter('subtitles', srt_file),
                     audio,
                     path,
                     f="mp4",
