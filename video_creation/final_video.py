@@ -3,6 +3,7 @@ import os
 import re
 import tempfile
 from playwright.sync_api import ViewportSize, sync_playwright
+from moviepy.editor import AudioFileClip
 import textwrap
 import threading
 import time
@@ -22,11 +23,12 @@ from utils.console import print_step, print_substep
 from utils.fancythumbnail import create_fancy_thumbnail
 from utils.fonts import getheight
 from utils.generatescreenshot import render_data
-from utils.generatesrt import generate_srt
+from utils.generatesrt import generate_ass
 from utils.pitchchanger import change_pitch
 from utils.thumbnail import create_thumbnail
 from utils.videos import save_data
 from utils.voice import sanitize_text
+from video_creation.background import chop_background
 
 console = Console()
 
@@ -90,6 +92,7 @@ def name_normalize(name: str) -> str:
 
 
 def prepare_background(reddit_id: str, W: int, H: int) -> str:
+    print_step('Preparing background 🌆')
     output_path = f"assets/temp/{reddit_id}/background_noaudio.mp4"
     output = (
         ffmpeg.input(f"assets/temp/{reddit_id}/background.mp4")
@@ -98,10 +101,10 @@ def prepare_background(reddit_id: str, W: int, H: int) -> str:
             output_path,
             an=None,
             **{
-                "c:v": "h264",
+                "c:v": "h264_nvenc",
                 "b:v": "20M",
                 "b:a": "192k",
-                "threads": multiprocessing.cpu_count(),
+                # "threads": multiprocessing.cpu_count(),
             },
         )
         .overwrite_output()
@@ -164,8 +167,6 @@ def make_final_video(
 
     print_step("Creating the final video 🎥")
 
-    background_clip = ffmpeg.input(prepare_background(reddit_id, W=W, H=H))
-
     # Gather all audio clips
     audio_clips = list()
     if number_of_clips == 0 and settings.config["settings"]["storymode"] == "false":
@@ -202,14 +203,22 @@ def make_final_video(
     ffmpeg.output(
         audio_concat, f"assets/temp/{reddit_id}/audio.mp3", **{"b:a": "192k"}
     ).overwrite_output().run(quiet=True)
+    audio_notitle_concat = ffmpeg.concat(*audio_clips[1:], a=1, v=0)
+    ffmpeg.output(audio_notitle_concat, f"assets/temp/{reddit_id}/audio_notitle.mp3", **{"b:a": "192k"}).overwrite_output().run(quiet=True)
 
     if settings.config["settings"]["tts"]["change_pitch"]:
-      audiopath = f"assets/temp/{reddit_id}/audio.mp3"
+      audiopath = f"assets/temp/{reddit_id}/audio_notitle.mp3"
+      titlepath = f"assets/temp/{reddit_id}/mp3/title.mp3"
+      fullaudio = f"assets/temp/{reddit_id}/audio.mp3"
       change_pitch(audiopath)
-      words = generate_srt(sanitize_text(' '.join(reddit_obj["thread_post"])), audiopath)
-      srt_file = f"assets/temp/{reddit_id}/subtitles.srt"
-      with open(srt_file, "w", encoding="utf-8") as f:
-        f.write(words)   
+      change_pitch(titlepath)
+      change_pitch(fullaudio)
+      ass_file = f"assets/temp/{reddit_id}/subtitles.ass"
+      clip = AudioFileClip(titlepath)
+      offset = clip.duration
+      clip.close()
+      print_step('Generating subtitles ☁')
+      generate_ass(sanitize_text(' '.join(reddit_obj["thread_post"])), audiopath, ass_file, offset=offset)   
     console.log(f"[bold green] Video Will Be: {length} Seconds Long")
 
     screenshot_width = int((W * 45) // 100)
@@ -219,6 +228,11 @@ def make_final_video(
     image_clips = list()
 
     Path(f"assets/temp/{reddit_id}/png").mkdir(parents=True, exist_ok=True)
+    clip = AudioFileClip(f"assets/temp/{reddit_id}/audio.mp3")
+    offset = clip.duration
+    clip.close()
+    chop_background(background_config, offset, reddit_obj)
+    background_clip = ffmpeg.input(prepare_background(reddit_id, W=W, H=H))
 
     # Credits to tim (beingbored)
     # get the title_template image and draw a text in the middle part of it with the title of the thread
@@ -228,7 +242,7 @@ def make_final_video(
     title = name_normalize(title)
 
     with sync_playwright() as p:
-        print_substep("Launching Headless Browser...")
+        print_substep("Launching Headless Browser to make title screenshot...")
 
         browser = p.chromium.launch(
             headless=True
@@ -242,11 +256,20 @@ def make_final_video(
         page.goto(f"file://{os.path.abspath(temp_file)}")
         page.locator("id=master").screenshot(path=f"assets/temp/{reddit_id}/png/title.png", omit_background=True)
 
+    print('Inserting title image...')
+    title_duration = float(ffmpeg.probe(f"assets/temp/{reddit_id}/mp3/title.mp3")["format"]["duration"])
+    fade_duration = 0.5
     image_clips.insert(
         0,
-        ffmpeg.input(f"assets/temp/{reddit_id}/png/title.png")["v"].filter(
-            "scale", screenshot_width, -1
-        ),
+        ffmpeg.input(
+                  f"assets/temp/{reddit_id}/png/title.png",
+                  loop=1,
+                  framerate=60,
+                  t=title_duration
+              )["v"]
+              .filter("scale", screenshot_width, -1)
+              .filter("format", "rgba")
+              .filter("fade", type="out", start_time=title_duration - fade_duration, duration=fade_duration, alpha=1)
     )
 
     current_time = 0
@@ -261,6 +284,7 @@ def make_final_video(
             0,
             float(ffmpeg.probe(f"assets/temp/{reddit_id}/mp3/title.mp3")["format"]["duration"]),
         )
+        fade_duration = 0.5
         if settings.config["settings"]["storymodemethod"] == 0:
             image_clips.insert(
                 1,
@@ -276,7 +300,13 @@ def make_final_video(
             )
             current_time += audio_clips_durations[0]
         elif settings.config["settings"]["storymodemethod"] == 1:
-            print('there should be and image but i removed it')
+            background_clip = background_clip.overlay(
+                image_clips[0],
+                enable=f"between(t,{current_time},{current_time + audio_clips_durations[0]})",
+                x="(main_w-overlay_w)/2",
+                y="(main_h-overlay_h)/2",
+            )
+            current_time += audio_clips_durations[0]
             # for i in track(range(0, number_of_clips + 1), "Collecting the image files..."):
             #     image_clips.append(
             #         ffmpeg.input(f"assets/temp/{reddit_id}/png/img{i}.png")["v"].filter(
@@ -359,17 +389,17 @@ def make_final_video(
             thumbnailSave.save(f"./assets/temp/{reddit_id}/thumbnail.png")
             print_substep(f"Thumbnail - Building Thumbnail in assets/temp/{reddit_id}/thumbnail.png")
 
-    text = f"Background by {background_config['video'][2]}"
-    background_clip = ffmpeg.drawtext(
-        background_clip,
-        text=text,
-        x=f"(w-text_w)",
-        y=f"(h-text_h)",
-        fontsize=5,
-        fontcolor="White",
-        fontfile=os.path.join("fonts", "Roboto-Regular.ttf"),
-    )
-    background_clip = background_clip.filter("scale", W, H)
+    # text = f"Background by {background_config['video'][2]}"
+    # background_clip = ffmpeg.drawtext(
+    #     background_clip,
+    #     text=text,
+    #     x=f"(w-text_w)",
+    #     y=f"(h-text_h)",
+    #     fontsize=5,
+    #     fontcolor="White",
+    #     fontfile=os.path.join("fonts", "Roboto-Regular.ttf"),
+    # )
+    # background_clip = background_clip.filter("scale", W, H)
     print_step("Rendering the video 🎥")
     from tqdm import tqdm
 
@@ -387,17 +417,16 @@ def make_final_video(
             path[:251] + ".mp4"
         )  # Prevent a error by limiting the path length, do not change this.
         try:
-            ffmpeg.filter_()
             ffmpeg.output(
-                background_clip.filter('subtitles', srt_file, force_style='Fontname=Caveat Brush,PrimaryColour=&HFF0000&,OutlineColour=&H&0&,Alignment=10'),
+                background_clip.filter('subtitles', ass_file),
                 final_audio,
                 path,
                 f="mp4",
                 **{
-                    "c:v": "h264",
+                    "c:v": "h264_nvenc",
                     "b:v": "20M",
                     "b:a": "192k",
-                    "threads": multiprocessing.cpu_count(),
+                    # "threads": multiprocessing.cpu_count(),
                 },
             ).overwrite_output().global_args("-progress", progress.output_file.name).run(
                 quiet=True,
@@ -419,15 +448,15 @@ def make_final_video(
         with ProgressFfmpeg(length, on_update_example) as progress:
             try:
                 ffmpeg.output(
-                    background_clip.filter('subtitles', srt_file),
+                    background_clip.filter('subtitles', ass_file),
                     audio,
                     path,
                     f="mp4",
                     **{
-                        "c:v": "h264",
+                        "c:v": "h264_nvenc",
                         "b:v": "20M",
                         "b:a": "192k",
-                        "threads": multiprocessing.cpu_count(),
+                        # "threads": multiprocessing.cpu_count(),
                     },
                 ).overwrite_output().global_args("-progress", progress.output_file.name).run(
                     quiet=True,

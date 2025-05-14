@@ -14,7 +14,6 @@ from rich.progress import track
 
 from utils import settings
 from utils.console import print_step, print_substep
-from utils.generatesrt import generate_srt
 from utils.pitchchanger import change_pitch
 from utils.voice import sanitize_text
 

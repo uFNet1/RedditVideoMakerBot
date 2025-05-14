@@ -16,7 +16,7 @@ html_imports = """
 
 # HTML template with placeholders
 post_template = f"""
-<div id="master" style="border: 2px solid #2D3643; font-family: Noto Sans; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; width: 915px; position: relative; gap: 2px; padding: 15px; border-radius: 35px; background: #181d24; border-width: 1px; border-color: #2d3643;">
+<div id="master" style="border: 2px solid #2D3643; font-family: Noto Sans; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; width: 915px; position: relative; gap: 2px; padding: 15px; border-radius: 35px; background: #181d24; border-width: 10px; border-color: #FF5700;">
   <div style="display: flex; justify-content: space-between; align-items: center; align-self: stretch; flex-grow: 0; flex-shrink: 0; position: relative; padding-left: 4px; padding-right: 4px; padding-bottom: 0px;">
     <div style="display: flex; justify-content: flex-start; align-items: center; flex-grow: 0; flex-shrink: 0; position: relative; gap: 9px;">
       <img src={{pfp_directory}} style="flex-grow: 0; flex-shrink: 0; width: 36px; height: 36px; border-radius: 18px; object-fit: cover; transform: scale(1.2);" />
@@ -30,25 +30,25 @@ post_template = f"""
             <p style="flex-grow: 0; flex-shrink: 0; font-size: 16px; text-align: left; color: #506a87;">{{time}}</p>
           </div>
         </div>
-        <p style="flex-grow: 0; flex-shrink: 0; font-size: 16.7px; font-weight: 380; text-align: left; color: #92a1ae;">{{author}}</p>
+        <p style="display: none; flex-grow: 0; flex-shrink: 0; font-size: 16.7px; font-weight: 380; text-align: left; color: #92a1ae;">{{author}}</p>
       </div>
     </div>
     <div style="flex-grow: 0; flex-shrink: 0; width: 30px; height: 7.5px; position: relative; overflow: hidden; background: url({{more_path}}); background-size: cover; background-repeat: no-repeat; background-position: center;"></div>
   </div>
   <div style="display: flex; justify-content: center; align-items: center; flex-grow: 0; flex-shrink: 0; width: 865px; position: relative; gap: 10px; padding-left: 7px; padding-right: 7px;">
-    <p style="flex-grow: 1; width: 851px; font-size: 30px; font-weight: 600; text-align: left; color: #bec2c4;">{{prompt}}</p>
+    <p style="flex-grow: 1; width: 851px; font-size: 46px; font-weight: 600; text-align: left; color: #fff8e3;">{{prompt}}</p>
   </div>
   <div style="line-height: 0px; display: flex; justify-content: flex-start; align-items: flex-end; flex-grow: 0; flex-shrink: 0; width: 398px; gap: 9px; padding-left: 6px; padding-right: 6px; padding-top: 0px;">
     <div style="display: flex; justify-content: center; align-items: center; flex-grow: 0; flex-shrink: 0; height: auto px; position: relative; gap: 8px; padding-left: 16px; padding-right: 16px; padding-top: 12px; padding-bottom: 12px; border-radius: 30px; background: #1f262e;">
       <div style="flex-grow: 0; flex-shrink: 0; width: 18px; height: 19.98px; position: relative; overflow: hidden; background: url({{upvote_path}}); background-size: cover; background-repeat: no-repeat; background-position: center;"></div>
-      <p style="flex-grow: 0; flex-shrink: 0; font-size: 15.1px; font-weight: 600; text-align: left; color: #bbc0c0;">{{upvotes}}</p>
+      <p style="flex-grow: 0; flex-shrink: 0; font-size: 21px; font-weight: 600; text-align: left; color: #bbc0c0;">{{upvotes}}</p>
       <div style="flex-grow: 0; flex-shrink: 0; width: 18px; height: 19.98px; position: relative; overflow: hidden; background: url({{downvote_path}}); background-size: cover; background-repeat: no-repeat; background-position: center;"></div>
     </div>
   </div>
 </div>
 """
 comment_template = f"""
-<div id="master" style="border: 2px solid #2D3643; font-family: Noto Sans; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; width: 915px; position: relative; gap: 2px; padding: 15px; border-radius: 35px; background: #181d24; border-width: 1px; border-color: #2d3643;">
+<div id="master" style="border: 2px solid #2D3643; font-family: Noto Sans; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; width: 915px; position: relative; gap: 2px; padding: 15px; border-radius: 35px; background: #181d24; border-width: 10px; border-color: #FF5700;">
   <div style="display: flex; justify-content: space-between; align-items: center; align-self: stretch; flex-grow: 0; flex-shrink: 0; position: relative; padding-left: 4px; padding-right: 4px; padding-bottom: 10px;">
     <div style="display: flex; justify-content: flex-start; align-items: center; flex-grow: 0; flex-shrink: 0; position: relative; gap: 9px;">
       <img src={{pfp_directory}} style="flex-grow: 0; flex-shrink: 0; width: 36px; height: 36px; border-radius: 18px; object-fit: cover; transform: scale(1.2);" />
@@ -78,7 +78,6 @@ comment_template = f"""
 </div>
 """
 base_directory = os.getcwd()
-print(base_directory)
 assets_directory = os.path.join(base_directory, 'assets')
 def get_relative_asset_path(html_file_path, asset_file_name):
     # Find the relative path from the HTML file to the assets directory
@@ -92,7 +91,6 @@ def render_data(text, upvotes_count='', author_text='User'):
     
     # Write the post HTML to a temporary file in "temp_files"
     temp_post_file = 'assets/temp/post.html'
-    print(get_relative_asset_path(temp_post_file, 'upvote.png'))
     # Generate HTML for the post
     post_html = post_template.format(
         subreddit = 'StoryVault',
@@ -100,7 +98,7 @@ def render_data(text, upvotes_count='', author_text='User'):
         prompt = text,
         upvotes = upvotes_count,
         pfp_directory = get_relative_asset_path(temp_post_file, "pfp.png"),
-        time = "",
+        time = "Follow",
         
         upvote_path = get_relative_asset_path(temp_post_file, 'upvote.png'),
         comment_path = get_relative_asset_path(temp_post_file, 'comment.png'),

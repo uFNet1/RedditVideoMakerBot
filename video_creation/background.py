@@ -128,16 +128,22 @@ def chop_background(background_config: Dict[str, Tuple], video_length: int, redd
         video_length (int): Length of the clip where the background footage is to be taken out of
     """
     id = re.sub(r"[^\w\s-]", "", reddit_object["thread_id"])
-
+    if settings.config["settings"]["background"]["background_video_offset"] > 0:
+        video_length += settings.config["settings"]["background"]["background_video_offset"]
+        
     if settings.config["settings"]["background"][f"background_audio_volume"] == 0:
         print_step("Volume was set to 0. Skipping background audio creation . . .")
     else:
-        print_step("Finding a spot in the backgrounds audio to chop...✂️")
         audio_choice = f"{background_config['audio'][2]}-{background_config['audio'][1]}"
         background_audio = AudioFileClip(f"assets/backgrounds/audio/{audio_choice}")
-        start_time_audio, end_time_audio = get_start_and_end_times(
-            video_length, background_audio.duration
-        )
+        if settings.config["settings"]["storymode"]:
+            start_time_audio = 0
+            end_time_audio = video_length
+        else:
+            print_step("Finding a spot in the backgrounds audio to chop...✂️")
+            start_time_audio, end_time_audio = get_start_and_end_times(
+                video_length, background_audio.duration
+            )
         background_audio = background_audio.subclip(start_time_audio, end_time_audio)
         background_audio.write_audiofile(f"assets/temp/{id}/background.mp3")
 

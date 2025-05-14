@@ -33,7 +33,8 @@ def get_screenshots_of_reddit_posts(reddit_object: dict, screenshot_num: int):
     H: Final[int] = int(settings.config["settings"]["resolution_h"])
     lang: Final[str] = settings.config["reddit"]["thread"]["post_lang"]
     storymode: Final[bool] = settings.config["settings"]["storymode"]
-
+    if storymode:
+        return
     print_step("Downloading screenshots of reddit posts...")
     reddit_id = re.sub(r"[^\w\s-]", "", reddit_object["thread_id"])
     # ! Make sure the reddit screenshots folder exists
@@ -66,13 +67,14 @@ def get_screenshots_of_reddit_posts(reddit_object: dict, screenshot_num: int):
 
     if storymode and settings.config["settings"]["storymodemethod"] == 1:
         # for idx,item in enumerate(reddit_object["thread_post"]):
-        print_substep("Generating images...")
-        return imagemaker(
-            theme=bgcolor,
-            reddit_obj=reddit_object,
-            txtclr=txtcolor,
-            transparent=transparent,
-        )
+        print('Images has been replaced by subtitles')
+        # print_substep("Generating images...")
+        # return imagemaker(
+        #     theme=bgcolor,
+        #     reddit_obj=reddit_object,
+        #     txtclr=txtcolor,
+        #     transparent=transparent,
+        # )
 
     screenshot_num: int
     with sync_playwright() as p:

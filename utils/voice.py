@@ -3,7 +3,7 @@ import sys
 import time as pytime
 from datetime import datetime
 from time import sleep
-
+import inflect
 from cleantext import clean
 from requests import Response
 
@@ -84,13 +84,20 @@ def sanitize_text(text: str) -> str:
     result = re.sub(regex_urls, " ", text)
 
     # note: not removing apostrophes
-    regex_expr = r"\s['|’]|['|’]\s|[\^_~@!&;#:\-%—“”‘\"%\*/{}\[\]\(\)\\|<>=+]"
+    regex_expr = r"\s['|’]|['|’]\s|[\^_~@!&;#:\-%—“”‘\"%\*/{}\[\]\(\)\\|<>=+]|…|\.+"
     result = re.sub(regex_expr, " ", result)
     result = result.replace("+", "plus").replace("&", "and")
 
     # emoji removal if the setting is enabled
     if settings.config["settings"]["tts"]["no_emojis"]:
         result = clean(result, no_emoji=True)
-
+    nowhitespace = " ".join(result.split())
+    p = inflect.engine()
+    words = nowhitespace.split()
+    result = []
+    for word in words:
+        if word.isdigit():
+            word = p.number_to_words(word)
+        result.append(word)
     # remove extra whitespace
-    return " ".join(result.split())
+    return " ".join(result)
